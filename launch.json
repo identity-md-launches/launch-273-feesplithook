@@ -1,0 +1,21 @@
+{
+  "kind": "univ4_hook",
+  "hook": {
+    "contract": "FeeSplitHook",
+    "constructorArgs": ["0xE03A1074c86CFeDd5C142C4F04F1a1536e203543"],
+    "permissions": ["beforeSwap", "afterSwap", "beforeSwapReturnDelta", "afterSwapReturnDelta"]
+  },
+  "token": {
+    "contract": "THRW",
+    "name": "Threeway",
+    "symbol": "THRW",
+    "decimals": 18
+  },
+  "pool": {
+    "pairedCurrency": "0x0000000000000000000000000000000000000000",
+    "fee": 3000,
+    "tickSpacing": 60,
+    "initialPrice": "2505414483750479311864138015696063"
+  },
+  "notes": "Threeway (THRW) univ4_hook launch on Sepolia. Technical description of the accepted implementation only; supply, allocations, ownership and chain selection come from the separately versioned launch policy, not from this file.\n\nToken: src/THRW.sol, OpenZeppelin ERC20 'Threeway' / 'THRW', 18 decimals, zero-argument constructor. Mints its whole fixed supply once to msg.sender (the factory) in the constructor. No mint, admin, owner, pause, tax or upgrade path.\n\nHook: src/FeeSplitHook.sol. Constructor takes exactly one argument, the IPoolManager; on Sepolia that is the canonical PoolManager 0xE03A1074c86CFeDd5C142C4F04F1a1536e203543 listed in constructorArgs. It reverts on a zero manager and calls Hooks.validateHookPermissions on its own address, so the CREATE2 salt must land on lower 14 address bits 0x00CC. getHookPermissions returns exactly beforeSwap, afterSwap, beforeSwapReturnDelta and afterSwapReturnDelta true and the other ten false; the permissions array above lists the same four. Initialization, liquidity and donate callbacks are not declared, so the factory's initialize and one-sided seed never reach the hook. Every callback and unlockCallback requires msg.sender == PoolManager. No owner, setter, pause, sweep, proxy, delegatecall, selfdestruct, oracle or external routing; every rate is a source constant.\n\nFee: 100 bps (1%) of the swap's ETH leg on pools whose currency0 is native ETH. With ETH specified (exact-in buy, exact-out sell) beforeSwap returns a positive specified delta of floor(|amountSpecified| * 100 / 10000); with ETH unspecified (exact-out buy, exact-in sell) afterSwap returns a positive unspecified delta of floor(ETH moved * 100 / 10000). The swapper's specified amount is honoured exactly; a price-limit partial fill reverts with PartialFill. A pool whose currency0 is not native ETH gets zero deltas and no state change. Fees are settled by minting the hook ERC-6909 ETH claims (currency id 0) inside the swap; no take, transfer or donate happens in a swap callback, so the first buy into the ETH-less pool works.\n\nSplit (source constants): interfaceShare = floor(fee * 2000 / 10000) to the address abi-decoded from hookData when hookData is exactly 32 bytes and non-zero, otherwise 0; lpShare = floor(fee * 3000 / 10000); burnShare = fee - interfaceShare - lpShare. hookData is unauthenticated. Payouts are pull-based and permissionless where stated: claim() pays the caller's interface balance, donateAccrued(key) burns that pool's LP claims and calls PoolManager.donate(key, amount, 0) inside the hook's own unlockCallback (reverts with the bucket intact when the pool has no in-range liquidity), burnAccrued() takes all burn buckets to 0x000000000000000000000000000000000000dEaD. Balances are zeroed before unlock; reentrant payouts revert. Events: FeeSplit, Donated, Burned, Claimed. Views: split constants, lifetimeTotals per pool, pending buckets, totalPending. Invariant: the hook's ETH claims at the PoolManager equal totalPending().\n\nPool: currency0 native ETH (pairedCurrency zero address), currency1 THRW, LP fee 3000 (0.3%), tickSpacing 60, hooks = FeeSplitHook. initialPrice is sqrtPriceX96 = floor(sqrt(1e9) * 2^96) = 2505414483750479311864138015696063, i.e. 1,000,000,000 THRW per ETH with both at 18 decimals; it matches script/LaunchParameters.sol and the rehearsal suite, which seeds one-sided THRW liquidity in [-887220, 207240] below that price and makes the first buy into the ETH-less pool. Sepolia only.\n\nABIs: docs/abi/FeeSplitHook.json and docs/abi/THRW.json; see docs/ABI.md. Toolchain: solc 0.8.26, evm cancun, optimizer 200 runs, bytecode_hash none, cbor_metadata false. Known property documented in README: donation rewards liquidity in range at donation time, so a JIT LP can capture the LP bucket."
+}
